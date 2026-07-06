@@ -1,1 +1,182 @@
+Voice-Based Concept Understanding Analyser (VBCUA)
 
+An AI-powered web application that evaluates how effectively a user understands and explains
+conceptual topics through spoken communication. It combines speech-to-text transcription,
+semantic similarity analysis, audio feature extraction, and intelligent scoring to assess both
+the quality of conceptual understanding and the fluency of speech delivery.
+
+Built as part of the SmartBridge Generative AI internship (IBM SkillsBuild).
+
+
+1. Project Overview
+
+A student, trainer, or researcher uploads or records a spoken explanation of a concept (e.g.
+"Machine Learning" or "Cloud Computing"). The system:
+
+
+Transcribes the speech using OpenAI Whisper
+Compares the explanation against a reference concept using Sentence-BERT semantic embeddings
+Analyzes speech fluency — filler words, pauses, and voice energy — using NLTK and Librosa
+Combines everything into a Similarity Score, Speech Score, and Final Score, with a
+qualitative classification (Strong / Moderate / Poor Understanding)
+Generates a downloadable PDF report with the transcript, scores, waveform, and feedback
+
+
+
+2. Architecture
+
+The application follows a three-layer architecture:
+
+Presentation Layer (Streamlit Interface)
+        ↓
+Core Intelligence Layer
+  ├── Speech-to-Text Module (Whisper)
+  ├── Semantic Understanding Module (Sentence-BERT)
+  ├── Filler Word Analysis Module (NLTK)
+  ├── Audio Feature Extraction Module (Librosa)
+  ├── Evaluation Scoring Module
+  └── Report Generation Module (ReportLab)
+        ↓
+Supporting Data & AI Services Layer
+  ├── Reference Concept Repository (JSON)
+  ├── Sentence Embedding Models
+  ├── Audio Processing Libraries
+  └── SQLite Database
+
+Page flow: Home → Upload Audio → Play Audio → Analyze → Result (transcript, scores,
+waveform, feedback) → Download PDF Report
+
+
+3. Features
+
+#FeatureDetails1Audio UploadUpload .wav, .mp3, .m4a files2Audio PlaybackPlay back uploaded/recorded audio before analysis3Speech-to-TextWhisper transcribes speech to text, displayed in-app4Semantic AnalysisSentence-BERT compares the answer to a reference explanation, showing a similarity percentage5Filler Word DetectionNLTK-based detection of "um," "uh," "like," etc., with total count and ratio6Pause AnalysisTotal pauses and pause ratio, via Librosa silence detection7RMS Energy / ConfidenceVoice energy consistency mapped to a High/Medium/Low confidence label8Waveform VisualizationMatplotlib-rendered waveform of the recording9ScoringSimilarity Score, Speech Score, and Final Score (0–100)10FeedbackStrong / Moderate / Poor Understanding classification with actionable suggestions11PDF ReportDownloadable report with transcript, scores, waveform, and feedback12Session HistoryPast evaluations stored and viewable in a history table
+
+
+4. Tech Stack
+
+CategoryTechnologyLanguagePython 3.10+FrontendStreamlitSpeech-to-TextOpenAI WhisperSemantic AnalysisSentence-BERT (Sentence-Transformers)Audio ProcessingLibrosaAudio I/OSoundFileNLPNLTK (tokenization, filler word / text processing)AI Feedback (optional)Google Gemini APIChartsMatplotlibPDF GenerationReportLabDatabaseSQLiteTestingPytest
+
+
+5. Project Structure
+
+vbcua/
+├── app.py                          # Streamlit UI — Home → Upload → Result → History pages
+├── config.py                       # Central settings (models, thresholds, scoring weights)
+├── requirements.txt
+├── README.md
+├── .streamlit/
+│   └── config.toml                 # UI theme configuration
+├── data/
+│   ├── reference_concepts.json     # Reference explanations + key points per concept
+│   └── sessions.db                 # SQLite DB (auto-created on first run)
+├── modules/                        # Core Intelligence Layer
+│   ├── speech_to_text.py           # Whisper wrapper
+│   ├── semantic_understanding.py   # Sentence-BERT similarity + key-point coverage
+│   ├── filler_analysis.py          # NLTK-based filler word detection
+│   ├── audio_features.py           # Librosa: pauses, RMS energy, waveform plot
+│   ├── scoring.py                  # Similarity Score, Speech Score, Final Score, Confidence
+│   └── report_generator.py         # ReportLab PDF report (+ optional Gemini summary)
+├── utils/
+│   ├── storage.py                  # SQLite persistence for session history
+│   └── helpers.py                  # File handling, SoundFile-based audio validation
+├── assets/                         # Auto-generated waveform images
+└── tests/
+    ├── conftest.py                 # Stubs heavy deps for fast unit testing
+    ├── test_filler_analysis.py
+    └── test_scoring.py
+
+
+6. Setup & Installation
+
+bash# 1. Navigate to the project folder
+cd vbcua
+
+# 2. (Recommended) Create a virtual environment
+python -m venv venv
+venv\Scripts\activate        # Windows
+source venv/bin/activate     # macOS/Linux
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Install FFmpeg (required by Whisper for audio decoding) and add it to your system PATH
+#    Download: https://www.gyan.dev/ffmpeg/builds/
+
+
+First run downloads the Whisper model (~140MB) and Sentence-BERT model (~80MB) from
+Hugging Face — an internet connection is needed the first time only.
+
+
+
+Optional — enable AI-generated qualitative summaries in the PDF report:
+
+bashexport GEMINI_API_KEY="your-key-here"     # Windows: set GEMINI_API_KEY=your-key-here
+
+Without this, the report still works fully — it falls back to a rule-based summary.
+
+
+7. Running the Application
+
+bashstreamlit run app.py
+
+Open the local URL Streamlit prints (usually http://localhost:8501).
+
+Usage flow:
+
+
+Home — click Start
+Upload & Analyze — select a concept, upload or record your spoken explanation, play it back to confirm, click Analyze
+Result — view transcript, Similarity/Speech/Final scores, waveform, confidence level, and feedback
+Click Generate PDF Report, then Download PDF Report
+History tab shows all past evaluations
+
+
+
+8. Testing
+
+bashpytest tests/ -v
+
+tests/conftest.py stubs out torch/whisper/sentence-transformers/librosa so the pure-logic
+tests (scoring math, filler word detection) run in under 2 seconds without model downloads.
+7 tests currently pass, covering:
+
+
+Filler word detection accuracy and ratio calculation
+Scoring classification (Strong/Moderate/Poor) at both ends of the spectrum
+Feedback generation for missed key concepts
+
+
+The full pipeline (Whisper → Sentence-BERT → Librosa → scoring → PDF) is exercised end-to-end
+by running the Streamlit app itself.
+
+
+9. Scoring Methodology
+
+The Final Score (0–100) is a weighted blend:
+
+ComponentWeightMeasuresSemantic similarity55%Cosine similarity (Sentence-BERT) between the explanation and reference concept, blended 70/30 with key-point coverageFiller word score15%Penalizes high "um/like/you know" ratioPause score15%Penalizes excessive silent gapsEnergy consistency15%Rewards steady speaking volume
+
+Classification thresholds:
+
+
+Strong Understanding: ≥ 75
+Moderate Understanding: 50–74
+Poor Understanding: < 50
+
+
+Confidence level (High/Medium/Low) is derived separately from voice energy consistency.
+
+
+10. Known Issues / Limitations
+
+#IssueStatus / Workaround1Requires FFmpeg installed separately for mp3/m4a decodingDocumented above; OS-specific installer, not bundled2Whisper "base" model favors speed over accuracy on CPUSwitch to "small"/"medium" in config.py if more compute is available3Limited to 5 pre-defined reference conceptsExtendable via data/reference_concepts.json, no code changes needed4No multi-user authenticationOut of scope; single-user local session by design5First run needs internet to download AI models (~220MB)One-time only; fully offline afterward
+
+
+11. Future Enhancements
+
+
+Support for additional languages (multilingual Whisper models + translated reference concepts)
+User accounts and per-user history
+Deployment to a hosted platform (Streamlit Community Cloud / Render / Azure)
+Expanded reference concept library covering more subjects
+Real-time (streaming) transcription and scoring instead of post-recording analysis
